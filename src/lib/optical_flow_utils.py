@@ -1,23 +1,68 @@
-def estimate_OF(images, images_pairs):
+from skimage.color import rgb2gray
+#from joblib import Parallel, delayed
+from skimage.registration import optical_flow_tvl1
+import numpy as np
+from skimage.feature import match_template
+from matplotlib import pyplot as plt
 
-    from skimage.color import rgb2gray
-    from skimage.registration import optical_flow_tvl1
-    import numpy as np
-    from skimage.color import rgb2gray
 
-    #from joblib import Parallel, delayed
+def estimate_framesPair_OF(image_0, image_1):
 
-    images = [rgb2gray(image) for image in images]
+    v, u = optical_flow_tvl1(image_0, image_1)
+    return (np.mean(np.sqrt(np.power(u,2)+np.power(v,2))))
+
+def estimate_framesPair_mse(image_0, image_1):
+
+    #match_template(image_0, image_1, pad_input=False, mode='constant', constant_values=0)
+    #image_product = np.fft.fft2(image_0) * np.fft.fft2(image_1).conj()
+    #cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
+    #ax3.imshow(cc_image.real)
+    return np.sum(np.square(np.subtract(image_0, image_1)).mean())
+
+
+def estimate_framesPairs_OF(images_rgb, images_pairs):
+
+    images = [rgb2gray(image) for image in images_rgb]
     images_pairs_OP = []
     for images_pair in images_pairs:
         image_0 = images[images_pair[0]]
         image_1 = images[images_pair[1]]
-        v, u = optical_flow_tvl1(image_0, image_1)
-        images_pairs_OP.append(np.mean(np.sqrt(np.power(u,2)+np.power(v,2))))
+        images_pairs_OP.append(estimate_framesPair_OF(image_0, image_1))
     return images_pairs_OP
 
 
+def estimate_framesPairs_mse(images_rgb, images_pairs):
 
+    images = [rgb2gray(image) for image in images_rgb]
+    images_pairs_mse = []
+    for images_pair in images_pairs:
+        image_0 = images[images_pair[0]]
+        image_1 = images[images_pair[1]]
+        images_pairs_mse.append(estimate_framesPair_mse(image_0, image_1))
+    return images_pairs_mse
+
+
+
+# smart sample of representative frames using two reference iamges
+def sample_representative_frames(frames_rgb, frame_rgb_0, frame_rgb_1):
+
+    frames_pairs = []
+    frames_rgb_temp = [frame_rgb_0, frame_rgb_1] + list(frames_rgb)
+    for frames_i in range(len(frames_rgb)):
+        frames_pairs.append((0, frames_i + 2))
+        frames_pairs.append((1, frames_i + 2))
+    f_mse = np.zeros((len(frames_rgb), 2))
+
+    frames_pairs_mse = estimate_framesPairs_mse(frames_rgb_temp, frames_pairs)
+    for frames_pair_mse_i, frames_pair_mse in enumerate(frames_pairs_mse):
+        f_mse[int(frames_pair_mse_i/2), frames_pair_mse_i % 2] = frames_pair_mse
+    np.histogram2d(f_mse[:, 0], f_mse[:, 1])
+    plt.scatter(f_mse[:, 0], f_mse[:, 1], s=50)
+    return f_mse
+
+
+
+# interpolate frames
 def video_interpolation_OF(image0_rgb, image1_rgb):
 
     import numpy as np
@@ -90,17 +135,18 @@ def video_interpolation_OF(image0_rgb, image1_rgb):
     ax1.set_title("Image t1", fontSize=10)
     ax1.set_axis_off()
 
-    ax2.imshow(seq_im)
-    ax2.set_title("Unregistered sequence", fontSize=10)
+    ax2.imshow(reg_im_rgb)
+    ax2.set_title("Registered seq RGB", fontSize=10)
     ax2.set_axis_off()
+
+    ax4.imshow(seq_im)
+    ax4.set_title("Unregistered sequence", fontSize=10)
+    ax4.set_axis_off()
 
     ax3.imshow(reg_im)
     ax3.set_title("Registered seq", fontSize=10)
     ax3.set_axis_off()
 
-    ax4.imshow(reg_im_rgb)
-    ax4.set_title("Registered seq RGB", fontSize=10)
-    ax4.set_axis_off()
 
     fig.tight_layout()
     plt.show()

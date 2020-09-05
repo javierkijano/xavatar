@@ -1,4 +1,5 @@
-
+import os
+import shutil
 
 # get individual frames from video at an specific framerate
 def get_frames(vidcap, frameRate=30, rescaleFactor=1.0):
@@ -45,7 +46,8 @@ def videos2frames(
         dir_inputVideos, dir_outputVideos, videosFilesName,
         ext_outputImage='jpg', frameRate=30, rescaleFactor=1.0, save=True):
 
-    import os
+    if os.path.exists(dir_outputVideos):
+        shutil.rmtree(dir_outputVideos)
     frames = {}
     for videoFileName in videosFilesName:
         dir_outputVideo = dir_outputVideos + '/' + os.path.splitext(videoFileName)[0]
